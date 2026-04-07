@@ -1,0 +1,45 @@
+Todo
+
+Firstly research the way in which space invaders actually works. I have the core i8080 which is the majority but now I need to findout how it does display, audio, input, and any weird quirks.
+
+Display
+    Uses a bitmapped framebuffer that is simply black and white.
+    Uses memory 0x2400-0x3FFF its 224x256 but its rotated vertical aka 90 degress. Each bit is just a pixel
+
+
+IO
+    input ports does player controls, coin, and start
+
+    output ports triggers sounds, and shift register controls
+
+Shift register
+    Space invaders has an external hardware specifically to do 16 bit shift since the 8080 would be too slow
+    it uses this to move sprites by shifting the large bitmaps
+
+    Simply 8080 does Out wiritng bytes to it and sets how far to shift and then it will immediately read via IN
+
+
+    example
+    So you’d extend your I/O logic roughly like:
+
+    OUT 2 → set shift offset
+    OUT 4 → write into shift register
+    IN 3 → return shifted value
+
+
+interrupts
+    Original game interrupts twice PER FRAME (mid screen and end screen)
+    Trigger interrupt 1 halfway through frame
+    Trigger interrupt 2 at frame end (~60 Hz total)
+
+Sound
+    Technically its overkill to emulate the texas instruments SN76477 that the original game uses as it simply does outport and that plays a piece of audio makes more sense to just shortcut that
+
+
+What I've done
+
+Added basic GUI stuff via macroquad which can do display, and IO
+
+Got the space invaders 1978 roms and set up loading them
+
+added T-States to the core to help me with timing

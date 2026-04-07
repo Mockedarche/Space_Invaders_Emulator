@@ -91,7 +91,7 @@ fn run_test(s: &str) {
     let mut step_result;
     // loop through the instructions in the rom printing information on failures or PC == 0 indicating finished
     loop {
-        step_result = core.i8080_step();
+        (step_result, _) = core.i8080_step();
         match step_result {
             StepInstructionResult::Halt => {
                 println!("Encountered a HALT STOPPING");
@@ -117,7 +117,7 @@ fn run_test(s: &str) {
 }
 
 fn main() {
-    let base = "Your Directory Here";
+    let base = "Your rom directory here";
     let arr: [&str; 4] = ["TST8080.COM", "CPUTEST.COM", "8080PRE.COM", "8080EXM.COM"];
 
 

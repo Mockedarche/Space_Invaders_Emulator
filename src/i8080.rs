@@ -21,7 +21,7 @@ pub enum StepInstructionResult {
     Halt,
 }
 
-const MEMORY_SIZE: usize = 65536;
+const MEMORY_SIZE: usize = 16384;
 
 #[allow(dead_code)]
 pub struct I8080Core {
@@ -102,6 +102,18 @@ impl I8080Core {
             }
         }
     }
+
+
+    /*
+     * set_program_counter_location - Function
+     * Expects: self to be intialized and location to be initialized
+     * Does: Sets program_counter to be the desired location
+     */
+    #[allow(dead_code)]
+    pub fn set_program_counter_location(&mut self, location: u16){
+        self.program_counter = location;
+    }
+
     /*
      * set_zero_flag - Function
      * Expects: self to be intialized and value to be valid data (which is to say the resulting value of
@@ -204,10 +216,11 @@ impl I8080Core {
      * i8080_step - Function
      * Epxects: self to be initialized
      * Does: Performs one instruction (the one pointed at by the program counter)
-     * Returns: A StepInstructionResult indicating how things went in the execution of this instruction
+     * Returns: A StepInstructionResult indicating how things went in the execution of this instruction 
+     * and how many T-States the instruction should have taken 
      */
     #[allow(dead_code)]
-    pub fn i8080_step(&mut self) -> StepInstructionResult {
+    pub fn i8080_step(&mut self) -> (StepInstructionResult, u8) {
         let debug = false;
         let instruction: u8;
         let temp1_8: u8;
@@ -228,18 +241,18 @@ impl I8080Core {
         match instruction {
             0x00 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x01 => {
                 self.b = self.memory[(self.program_counter as usize) + 2];
                 self.c = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x02 => {
                 self.memory[((self.b as u16) << 8 | self.c as u16) as usize] = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x03 => {
                 temp3_16 = (self.b as u16) << 8 | (self.c as u16);
@@ -247,7 +260,7 @@ impl I8080Core {
                 self.b = (temp3_16 >> 8) as u8;
                 self.c = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x04 => {
                 let original = self.b;
@@ -258,7 +271,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.b);
                 self.set_parity_flag(self.b as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x05 => {
 
@@ -270,22 +283,22 @@ impl I8080Core {
                 self.set_parity_flag(self.b as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x06 => {
                 self.b = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x07 => {
                 self.carry = (self.a & 0x80) != 0;
                 self.a = self.a << 1 | if self.carry { 1 } else { 0 };
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x08 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x09 => {
                 let hl = (self.h as u16) << 8 | self.l as u16;
@@ -295,12 +308,12 @@ impl I8080Core {
                 self.h = (sum >> 8) as u8;
                 self.l = sum as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x0A => {
                 self.a = self.memory[((self.b as u16) << 8 | self.c as u16) as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x0B => {
                 temp3_16 = (self.b as u16) << 8 | self.c as u16;
@@ -308,7 +321,7 @@ impl I8080Core {
                 self.b = (temp3_16 >> 8) as u8;
                 self.c = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x0C => {
                 let original = self.c;
@@ -318,7 +331,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.c);
                 self.set_parity_flag(self.c as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x0D => {
                 let original = self.c;
@@ -328,12 +341,12 @@ impl I8080Core {
                 self.set_zero_flag(self.c);
                 self.set_parity_flag(self.c as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x0E => {
                 self.c = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x0F => {
                 self.carry = (self.a & 0x01) != 0; 
@@ -341,22 +354,22 @@ impl I8080Core {
                 self.a = (self.a >> 1) | if self.carry { 0x80 } else { 0 };
   
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x10 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x11 => {
                 self.d = self.memory[(self.program_counter as usize) + 2];
                 self.e = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x12 => {
                 self.memory[((self.d as u16) << 8 | self.e as u16) as usize] = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x13 => {
                 temp3_16 = (self.d as u16) << 8 | (self.e as u16);
@@ -364,7 +377,7 @@ impl I8080Core {
                 self.d = (temp3_16 >> 8) as u8;
                 self.e = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x14 => {
                 let original = self.d;
@@ -375,7 +388,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.d);
                 self.set_parity_flag(self.d as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x15 => {
                 let original = self.d;
@@ -385,12 +398,12 @@ impl I8080Core {
                 self.set_zero_flag(self.d);
                 self.set_parity_flag(self.d as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x16 => {
                 self.d = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x17 => {
                 let old_carry = self.carry;
@@ -398,11 +411,11 @@ impl I8080Core {
                 self.a = (self.a << 1) | if old_carry { 1 } else { 0 };
                 self.carry = new_carry;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x18 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x19 => {
                 let hl = (self.h as u16) << 8 | self.l as u16;
@@ -412,12 +425,12 @@ impl I8080Core {
                 self.h = (sum >> 8) as u8;
                 self.l = sum as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x1A => {
                 self.a = self.memory[((self.d as u16) << 8 | (self.e as u16)) as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x1B => {
                 temp3_16 = (self.d as u16) << 8 | self.e as u16;
@@ -425,7 +438,7 @@ impl I8080Core {
                 self.d = (temp3_16 >> 8) as u8;
                 self.e = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x1C => {
                 let original = self.e;
@@ -435,7 +448,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.e);
                 self.set_parity_flag(self.e as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x1D => {
                 let original = self.e;
@@ -445,12 +458,12 @@ impl I8080Core {
                 self.set_zero_flag(self.e);
                 self.set_parity_flag(self.e as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x1E => {
                 self.e = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x1F => {
                 let old_carry = self.carry;
@@ -458,17 +471,17 @@ impl I8080Core {
                 self.a = (self.a >> 1) | if old_carry { 0x80 } else { 0 };
                 self.carry = new_carry;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x20 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x21 => {
                 self.h = self.memory[(self.program_counter as usize) + 2];
                 self.l = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x22 => {
                 let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
@@ -476,7 +489,7 @@ impl I8080Core {
                 self.memory[addr as usize] = self.l;
                 self.memory[addr as usize + 1] = self.h;
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 16);
             }
             0x23 => {
                 temp3_16 = (self.h as u16) << 8 | (self.l as u16);
@@ -484,7 +497,7 @@ impl I8080Core {
                 self.h = (temp3_16 >> 8) as u8;
                 self.l = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x24 => {
                 let original = self.h;
@@ -495,7 +508,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.h);
                 self.set_parity_flag(self.h as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x25 => {
                 let original = self.h;
@@ -505,12 +518,12 @@ impl I8080Core {
                 self.set_zero_flag(self.h);
                 self.set_parity_flag(self.h as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x26 => {
                 self.h = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x27 => {
                 let lsb = self.a & 0x0F;
@@ -538,11 +551,11 @@ impl I8080Core {
                 self.carry = cy;
 
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x28 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x29 => {
                 let hl = (self.h as u16) << 8 | self.l as u16;
@@ -551,7 +564,7 @@ impl I8080Core {
                 self.h = (sum >> 8) as u8;
                 self.l = sum as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x2A => {
                 let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
@@ -559,7 +572,7 @@ impl I8080Core {
                 self.l = self.memory[addr as usize];
                 self.h = self.memory[addr as usize + 1];
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 16);
             }
             0x2B => {
                 temp3_16 = (self.h as u16) << 8 | self.l as u16;
@@ -567,7 +580,7 @@ impl I8080Core {
                 self.h = (temp3_16 >> 8) as u8;
                 self.l = (temp3_16 & 0x00FF) as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x2C => {
                 let original = self.l;
@@ -577,7 +590,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.l);
                 self.set_parity_flag(self.l as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x2D => {
                 let original = self.l;
@@ -587,21 +600,21 @@ impl I8080Core {
                 self.set_zero_flag(self.l);
                 self.set_parity_flag(self.l as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x2E => {
                 self.l = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x2F => {
                 self.a = !self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x30 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x31 => {
                 self.stack_pointer = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
@@ -609,19 +622,19 @@ impl I8080Core {
 
 
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x32 => {
                 let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
                     | (self.memory[(self.program_counter as usize) + 1] as u16);
                 self.memory[addr as usize] = self.a;
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 13);
             }
             0x33 => {
                 self.stack_pointer = self.stack_pointer.wrapping_add(1);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x34 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -634,7 +647,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, result);
                 self.set_parity_flag(result as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x35 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -648,23 +661,23 @@ impl I8080Core {
                 self.set_parity_flag(result as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x36 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
 
                 self.memory[addr as usize] = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x37 => {
                 self.carry = true;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x38 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0x39 => {
                 let hl = (self.h as u16) << 8 | self.l as u16;
@@ -673,7 +686,7 @@ impl I8080Core {
                 self.h = (sum >> 8) as u8;
                 self.l = sum as u8;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0x3A => {
                 let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
@@ -682,12 +695,12 @@ impl I8080Core {
 
                 self.a = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(3);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 13);
             }
             0x3B => {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x3C => {
                 let original = self.a;
@@ -697,7 +710,7 @@ impl I8080Core {
                 self.set_auxiliary_carry_addition_flag(original, 1, self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x3D => {
                 let original = self.a;
@@ -707,46 +720,46 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x3E => {
                 self.a = self.memory[(self.program_counter as usize) + 1];
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x3F => {
                 self.carry = !self.carry;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x40 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x41 => {
                 self.b = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x42 => {
                 self.b = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x43 => {
                 self.b = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x44 => {
                 self.b = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x45 => {
                 self.b = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x46 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -756,212 +769,212 @@ impl I8080Core {
                 }
                 self.b = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x47 => {
                 self.b = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x48 => {
                 self.c = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x49 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x4A => {
                 self.c = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x4B => {
                 self.c = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x4C => {
                 self.c = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x4D => {
                 self.c = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x4E => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.c = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x4F => {
                 self.c = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x50 => {
                 self.d = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x51 => {
                 self.d = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x52 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x53 => {
                 self.d = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x54 => {
                 self.d = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x55 => {
                 self.d = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x56 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.d = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x57 => {
                 self.d = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x58 => {
                 self.e = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x59 => {
                 self.e = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x5A => {
                 self.e = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x5B => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x5C => {
                 self.e = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x5D => {
                 self.e = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x5E => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.e = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x5F => {
                 self.e = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x60 => {
                 self.h = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x61 => {
                 self.h = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x62 => {
                 self.h = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x63 => {
                 self.h = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x64 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x65 => {
                 self.h = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x66 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.h = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x67 => {
                 self.h = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x68 => {
                 self.l = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x69 => {
                 self.l = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x6A => {
                 self.l = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x6B => {
                 self.l = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x6C => {
                 self.l = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x6D => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x6E => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.l = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x6F => {
                 self.l = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x70 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -970,88 +983,88 @@ impl I8080Core {
                 }
                 self.memory[addr as usize] = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x71 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x72 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x73 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x74 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x75 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x76 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Halt;
+                return (StepInstructionResult::Halt, 7);
             }
             0x77 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.memory[addr as usize] = self.a;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x78 => {
                 self.a = self.b;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x79 => {
                 self.a = self.c;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x7A => {
                 self.a = self.d;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x7B => {
                 self.a = self.e;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x7C => {
 
                 self.a = self.h;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x7D => {
                 self.a = self.l;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x7E => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 self.a = self.memory[addr as usize];
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x7F => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0x80 => {
                 let sum = self.a as u16 + self.b as u16;
@@ -1062,7 +1075,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x81 => {
                 let sum = self.a as u16 + self.c as u16;
@@ -1073,7 +1086,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x82 => {
                 let sum = self.a as u16 + self.d as u16;
@@ -1084,7 +1097,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x83 => {
                 let sum = self.a as u16 + self.e as u16;
@@ -1095,7 +1108,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x84 => {
                 let sum = self.a as u16 + self.h as u16;
@@ -1106,7 +1119,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x85 => {
                 let sum = self.a as u16 + self.l as u16;
@@ -1117,7 +1130,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x86 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1133,7 +1146,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x87 => {
                 let sum = self.a as u16 + self.a as u16;
@@ -1144,7 +1157,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x88 => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1159,7 +1172,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x89 => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1174,7 +1187,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x8A => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1189,7 +1202,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x8B => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1204,7 +1217,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x8C => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1219,7 +1232,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x8D => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1234,7 +1247,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x8E => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1251,7 +1264,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x8F => {
                 let carry_in = if self.carry { 1 } else { 0 } as u8;
@@ -1266,7 +1279,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x90 => {
                 let dif = (self.a as u16).wrapping_sub(self.b as u16);
@@ -1277,7 +1290,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x91 => {
                 let dif = (self.a as u16).wrapping_sub(self.c as u16);
@@ -1288,7 +1301,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x92 => {
                 let dif = (self.a as u16).wrapping_sub(self.d as u16);
@@ -1299,7 +1312,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x93 => {
                 let dif = (self.a as u16).wrapping_sub(self.e as u16);
@@ -1310,7 +1323,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x94 => {
                 let dif = (self.a as u16).wrapping_sub(self.h as u16);
@@ -1321,7 +1334,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x95 => {
                 let dif = (self.a as u16).wrapping_sub(self.l as u16);
@@ -1332,7 +1345,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x96 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1345,7 +1358,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x97 => {
                 let dif = (self.a as u16).wrapping_sub(self.a as u16);
@@ -1356,7 +1369,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x98 => {  // SBB B
                 let a = self.a;
@@ -1377,7 +1390,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
 
             0x99 => {  // SBB C
@@ -1397,7 +1410,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
 
             0x9A => {  // SBB D
@@ -1417,7 +1430,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
 
             0x9B => {  // SBB E
@@ -1437,7 +1450,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
 
             0x9C => {  // SBB H
@@ -1457,7 +1470,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
 
             0x9D => {  // SBB L
@@ -1477,7 +1490,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0x9E => {  // SBB M
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1497,7 +1510,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0x9F => {  // SBB A
                 let a = self.a;
@@ -1512,7 +1525,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA0 => {
                 // Save original values for auxiliary carry calculation
@@ -1527,7 +1540,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA1 => {
                 // Save original values for auxiliary carry calculation
@@ -1542,7 +1555,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA2 => {
                 // Save original values for auxiliary carry calculation
@@ -1557,7 +1570,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA3 => {
                 // Save original values for auxiliary carry calculation
@@ -1572,7 +1585,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA4 => {
                 // Save original values for auxiliary carry calculation
@@ -1587,7 +1600,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA5 => {
                 // Save original values for auxiliary carry calculation
@@ -1602,7 +1615,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA6 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1619,7 +1632,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xA7 => {
                 // Save original values for auxiliary carry calculation
@@ -1634,7 +1647,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA8 => {
                 self.auxiliary_carry = false;
@@ -1644,7 +1657,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xA9 => {
                 self.auxiliary_carry = false;
@@ -1654,7 +1667,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xAA => {
                 self.auxiliary_carry = false;
@@ -1664,7 +1677,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xAB => {
                 self.auxiliary_carry = false;
@@ -1674,7 +1687,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xAC => {
                 self.auxiliary_carry = false;
@@ -1684,7 +1697,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xAD => {
                 self.auxiliary_carry = false;
@@ -1694,7 +1707,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xAE => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1706,7 +1719,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xAF => {
                 self.auxiliary_carry = false;
@@ -1716,7 +1729,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB0 => {
                 self.auxiliary_carry = false;
@@ -1726,7 +1739,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB1 => {
                 self.auxiliary_carry = false;
@@ -1736,7 +1749,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB2 => {
                 self.auxiliary_carry = false;
@@ -1746,7 +1759,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB3 => {
                 self.auxiliary_carry = false;
@@ -1756,7 +1769,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB4 => {
                 self.auxiliary_carry = false;
@@ -1766,7 +1779,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB5 => {
                 self.auxiliary_carry = false;
@@ -1776,7 +1789,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB6 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1788,7 +1801,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xB7 => {
                 self.auxiliary_carry = false;
@@ -1798,7 +1811,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB8 => {
                 let dif = (self.a as u16).wrapping_sub(self.b as u16);
@@ -1808,7 +1821,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xB9 => {
                 let dif = (self.a as u16).wrapping_sub(self.c as u16);
@@ -1818,7 +1831,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xBA => {
                 let dif = (self.a as u16).wrapping_sub(self.d as u16);
@@ -1828,7 +1841,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xBB => {
                 let dif = (self.a as u16).wrapping_sub(self.e as u16);
@@ -1838,7 +1851,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xBC => {
                 let dif = (self.a as u16).wrapping_sub(self.h as u16);
@@ -1848,7 +1861,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xBD => {
                 let dif = (self.a as u16).wrapping_sub(self.l as u16);
@@ -1858,7 +1871,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xBE => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
@@ -1870,7 +1883,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xBF => {
                 let dif = (self.a as u16).wrapping_sub(self.a as u16);
@@ -1880,7 +1893,7 @@ impl I8080Core {
                 self.set_zero_flag(dif as u8);
                 self.set_parity_flag(dif as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xC0 => {
                 if !self.zero {
@@ -1889,10 +1902,10 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xC1 => {
                 self.b = self.memory[self.stack_pointer as usize + 1];
@@ -1901,7 +1914,7 @@ impl I8080Core {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xC2 => {
                 if !self.zero {
@@ -1912,7 +1925,7 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xC3 => {
                 
@@ -1920,7 +1933,7 @@ impl I8080Core {
                     | self.memory[self.program_counter as usize + 1] as u16;
 
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xC4 => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -1933,10 +1946,11 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xC5 => {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -1946,7 +1960,7 @@ impl I8080Core {
 
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xC6 => {
                 let sum = self.a as u16 + self.memory[self.program_counter as usize + 1] as u16;
@@ -1960,7 +1974,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
 
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xC7 => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -1969,7 +1983,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0000;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xC8 => {
                 if self.zero {
@@ -1978,17 +1992,17 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xC9 => {
                 self.program_counter = (self.memory[self.stack_pointer as usize + 1] as u16) << 8
                     | self.memory[self.stack_pointer as usize] as u16;
 
                 self.stack_pointer = self.stack_pointer.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xCA => {
                 if debug{
@@ -2002,11 +2016,11 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xCB => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0xCC => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2019,10 +2033,11 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             // CALL opcode used by CP/M
             0xCD => {
@@ -2034,7 +2049,7 @@ impl I8080Core {
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = (self.memory[self.program_counter as usize + 2] as u16) << 8
                     | self.memory[self.program_counter as usize + 1] as u16;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 17);
             }
             0xCE => {
                 let carry_in = if self.carry { 1u8 } else { 0u8 };
@@ -2047,7 +2062,7 @@ impl I8080Core {
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xCF => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2056,7 +2071,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0008;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xD0 => {
                 if !self.carry {
@@ -2065,10 +2080,10 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xD1 => {
                 self.d = self.memory[self.stack_pointer as usize + 1];
@@ -2077,7 +2092,7 @@ impl I8080Core {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xD2 => {
                 if !self.carry {
@@ -2088,7 +2103,7 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xD3 => {
 
@@ -2097,7 +2112,7 @@ impl I8080Core {
                     callback(port, self.a);
                 }
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xD4 => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2110,10 +2125,11 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xD5 => {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -2123,7 +2139,7 @@ impl I8080Core {
 
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xD6 => {
                 let imm = self.memory[self.program_counter as usize + 1] as u16;
@@ -2139,7 +2155,7 @@ impl I8080Core {
                 
 
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xD7 => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2148,7 +2164,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0010;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xD8 => {
                 if self.carry {
@@ -2157,14 +2173,14 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xD9 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0xDA => {
                 if self.carry {
@@ -2175,12 +2191,12 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xDB => {
                 // TODO ADD SPECIFIC IN BEHAVIOR (AS A GENERIC)
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xDC => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2193,14 +2209,15 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xDD => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::NoOperation;
+                return (StepInstructionResult::NoOperation, 4);
             }
             0xDE => {
                 let imm = self.memory[self.program_counter as usize + 1];
@@ -2216,7 +2233,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
 
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xDF => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2225,7 +2242,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0018;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xE0 => {
                 if !self.parity {
@@ -2234,10 +2251,10 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xE1 => {
                 self.h = self.memory[self.stack_pointer as usize + 1];
@@ -2246,7 +2263,7 @@ impl I8080Core {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xE2 => {
                 if !self.parity {
@@ -2257,7 +2274,7 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xE3 => {
                 temp1_8 = self.h;
@@ -2269,7 +2286,7 @@ impl I8080Core {
                 self.memory[self.stack_pointer as usize + 1] = temp1_8;
 
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 18);
             }
             0xE4 => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2285,10 +2302,11 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xE5 => {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -2298,7 +2316,7 @@ impl I8080Core {
 
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xE6 => {
                 let imm = self.memory[self.program_counter as usize + 1];
@@ -2312,7 +2330,7 @@ impl I8080Core {
                 self.carry = false;
                 
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xE7 => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2321,7 +2339,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0020;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xE8 => {
 
@@ -2331,14 +2349,14 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xE9 => {
                 self.program_counter = (self.h as u16) << 8 | (self.l as u16);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xEA => {
                 if self.parity {
@@ -2349,7 +2367,7 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xEB => {
                 temp1_8 = self.h;
@@ -2362,7 +2380,7 @@ impl I8080Core {
 
                 self.program_counter = self.program_counter.wrapping_add(1);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xEC => {
 
@@ -2377,14 +2395,15 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xED => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xEE => {
                 self.auxiliary_carry = false;
@@ -2395,7 +2414,7 @@ impl I8080Core {
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(2);
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xEF => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2404,7 +2423,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0028;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xF0 => {
                 if !self.sign {
@@ -2413,10 +2432,10 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xF1 => {
                 self.a = self.memory[self.stack_pointer as usize + 1];
@@ -2432,7 +2451,7 @@ impl I8080Core {
 
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.stack_pointer = self.stack_pointer.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xF2 => {
                 if !self.sign {
@@ -2443,12 +2462,12 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xF3 => {
                 //TODO attach intruupts and this disables them till 0xFB
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xF4 => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2461,10 +2480,11 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xF5 => {
                 // Build the flags byte according to Intel 8080 format
@@ -2486,7 +2506,7 @@ impl I8080Core {
                 self.memory[self.stack_pointer as usize] = flags;  // A second
                 
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xF6 => {
                 self.auxiliary_carry = false;
@@ -2496,7 +2516,7 @@ impl I8080Core {
                 self.set_parity_flag(self.a as u16);
                 self.carry = false;
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xF7 => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2505,7 +2525,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0030;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xF8 => {
                 if self.sign {
@@ -2514,15 +2534,15 @@ impl I8080Core {
                     self.stack_pointer = self.stack_pointer.wrapping_add(2);
 
                     self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
-                    return StepInstructionResult::Ok;
+                    return (StepInstructionResult::Ok, 11);
                 }
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xF9 => {
                 self.stack_pointer = (self.h as u16) << 8 | self.l as u16;
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 5);
             }
             0xFA => {
                 if self.sign {
@@ -2533,12 +2553,12 @@ impl I8080Core {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
 
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 10);
             }
             0xFB => {
                 //todo!(enable interupts)
                 self.program_counter = self.program_counter.wrapping_add(1);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xFC => {
                 temp3_16 = self.program_counter.wrapping_add(3);
@@ -2551,13 +2571,14 @@ impl I8080Core {
                     self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
                         | self.memory[self.program_counter as usize + 1] as u16;
+                    return (StepInstructionResult::Ok, 17);
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
             0xFD => {
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 4);
             }
             0xFE => { 
 
@@ -2575,7 +2596,7 @@ impl I8080Core {
                 self.set_parity_flag(dif as u16);
 
                 self.program_counter = self.program_counter.wrapping_add(2);
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 7);
             }
             0xFF => {
                 temp3_16 = self.program_counter.wrapping_add(1);
@@ -2584,7 +2605,7 @@ impl I8080Core {
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = temp3_16 as u8;
                 self.program_counter = 0x0038;
-                return StepInstructionResult::Ok;
+                return (StepInstructionResult::Ok, 11);
             }
         }
     }
