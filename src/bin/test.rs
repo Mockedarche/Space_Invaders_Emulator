@@ -8,7 +8,7 @@ use std::{io::Write};
  * Does: Takes the out as expected for the CP/M for output
  * Returns: N/A
  */
-fn handle_out(port: u8, value: u8) {
+fn handle_out(core: &mut I8080Core, port: u8, value: u8) {
     let debug = false;
     if debug {
         println!("DID an OUT handle_out");

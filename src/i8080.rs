@@ -43,8 +43,14 @@ pub struct I8080Core {
     pub auxiliary_carry: bool,
     pub parity: bool,
     pub carry: bool,
-    pub on_out: Option<fn(u8, u8)>,
+    pub on_out: Option<fn(&mut I8080Core, u8, u8)>,
+    pub on_in: Option<fn(&mut I8080Core, u8)>,
     pub instruction_number: usize,
+
+    pub shift_data: u16,
+    pub shift_offset: u8,
+    pub interrupt_enabled: bool,
+
 }
 
 impl I8080Core {
@@ -67,7 +73,11 @@ impl I8080Core {
             parity: false,
             carry: false,
             on_out: None,
+            on_in: None,
             instruction_number: 0,
+            shift_data: 0,
+            shift_offset: 0,
+            interrupt_enabled: false,
         }
     }
 
@@ -2109,7 +2119,7 @@ impl I8080Core {
 
                 let port = self.memory[self.program_counter as usize + 1];
                 if let Some(callback) = self.on_out {
-                    callback(port, self.a);
+                    callback(self, port, self.a);
                 }
                 self.program_counter = self.program_counter.wrapping_add(2);
                 return (StepInstructionResult::Ok, 10);
@@ -2194,7 +2204,10 @@ impl I8080Core {
                 return (StepInstructionResult::Ok, 10);
             }
             0xDB => {
-                // TODO ADD SPECIFIC IN BEHAVIOR (AS A GENERIC)
+                let port = self.memory[self.program_counter as usize + 1];
+                if let Some(callback) = self.on_in {
+                    callback(self, port);
+                }
                 self.program_counter = self.program_counter.wrapping_add(2);
                 return (StepInstructionResult::Ok, 10);
             }
@@ -2466,6 +2479,7 @@ impl I8080Core {
             }
             0xF3 => {
                 //TODO attach intruupts and this disables them till 0xFB
+                self.interrupt_enabled = false;
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return (StepInstructionResult::Ok, 4);
             }
@@ -2497,7 +2511,6 @@ impl I8080Core {
                 if self.sign { flags |= 0b10000000; }       // Bit 7 - Sign
                 
                 // Explicitly clear reserved bits (though they should already be 0)
-                //flags &= 0b11010111; // Clear bits 3 and 5 (keep them 0)
                 
                 // Push flags first, then accumulator
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -2557,6 +2570,7 @@ impl I8080Core {
             }
             0xFB => {
                 //todo!(enable interupts)
+                self.interrupt_enabled = true;
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return (StepInstructionResult::Ok, 4);
             }

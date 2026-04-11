@@ -43,3 +43,7 @@ Added basic GUI stuff via macroquad which can do display, and IO
 Got the space invaders 1978 roms and set up loading them
 
 added T-States to the core to help me with timing
+
+Used T-States to track timing of the interrupts for managing when to do frame draws (top and bottom)
+
+Commented and performed a basic clean up
