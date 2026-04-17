@@ -5,7 +5,7 @@ edition = "2021"
 default-run = "main"
 
 [dependencies]
-
+macroquad = { version = "0.4", features = ["audio"] }
 
 [lib]
 name = "i8080_emulator"

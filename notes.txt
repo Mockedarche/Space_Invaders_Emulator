@@ -47,3 +47,13 @@ added T-States to the core to help me with timing
 Used T-States to track timing of the interrupts for managing when to do frame draws (top and bottom)
 
 Commented and performed a basic clean up
+
+added input and output
+
+added sound
+
+fixed some bugs related to timing
+
+added arguments for custom colors
+
+documentation and polish pass

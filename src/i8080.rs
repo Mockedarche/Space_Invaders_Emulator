@@ -1,10 +1,10 @@
 use std::{fs, usize};
 
 /*
- * Todo
- * Perform performance optimization and code consistancy (debugging all opcodes created stuff needing fixing)
+ * LoadRomResult - Struct
+ * Used to identify all possible states loading a rom could incur
+ * 
  */
-
  #[derive(PartialEq)]
 pub enum LoadRomResult {
     Ok,
@@ -12,6 +12,10 @@ pub enum LoadRomResult {
     NotFound,
 }
 
+/*
+ * StepInstructionResult - Struct
+ * Used to identify all the possible effects from processing and executioning a instruction
+ */
 #[derive(PartialEq)]
 #[allow(dead_code)]
 pub enum StepInstructionResult {
@@ -21,10 +25,18 @@ pub enum StepInstructionResult {
     Halt,
 }
 
+// Specifically for the Space Invaders 1978 memory size 
 const MEMORY_SIZE: usize = 16384;
 
+/*
+ * I8080Core - Struct
+ * Holds all of the registers, hardware, and interconnections for emulating the intel 8080 CPU
+ * as well as the implementation of all the emulation of the 8080 CPU from default values, interconnections,
+ * and actually processing a instruction
+ */
 #[allow(dead_code)]
 pub struct I8080Core {
+
     pub memory: [u8; MEMORY_SIZE],
 
     pub a: u8,
@@ -50,9 +62,19 @@ pub struct I8080Core {
     pub shift_data: u16,
     pub shift_offset: u8,
     pub interrupt_enabled: bool,
+    pub port1: u8,
+    pub ufo_sound_active: bool,
+    pub sound_triggers: [bool; 10],
+
+
 
 }
 
+/*
+ * I8080Core - Implementation
+ * Implements the I8080Core struct with default values
+ * 
+ */
 impl I8080Core {
     pub fn new() -> Self {
         Self {
@@ -78,6 +100,9 @@ impl I8080Core {
             shift_data: 0,
             shift_offset: 0,
             interrupt_enabled: false,
+            port1: 0,
+            ufo_sound_active: false,
+            sound_triggers: [false; 10],
         }
     }
 
