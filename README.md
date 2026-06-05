@@ -1,7 +1,6 @@
 Space for my Space Invaders (1978) emulator implementation. Using my Intel 8080 emulator core
-[I8080 Core](https://github.com/Mockedarche/Intel-8080-Emulator)
-
-Completely functioning
+[I8080 Core](https://github.com/Mockedarche/Intel-8080-Emulator)  
+<br>
 ![](https://github.com/Mockedarche/Space_Invaders_Emulator/blob/main/Media/default.gif)
 
 Ability to change the colors as desired or at random
