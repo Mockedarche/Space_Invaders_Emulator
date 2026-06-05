@@ -1,11 +1,15 @@
-Space for my Space Invaders (1978) emulator implementation. Using my Intel 8080 emulator core
+Space for my Space Invaders (1978) emulator implementation. 
 [I8080 Core](https://github.com/Mockedarche/Intel-8080-Emulator)  
+Using my Intel 8080 emulator core
 <br>
+  
 Fully Functional
-![](https://github.com/Mockedarche/Space_Invaders_Emulator/blob/main/Media/default.gif)
-
+ 
+  ![](https://github.com/Mockedarche/Space_Invaders_Emulator/blob/main/Media/default.gif)
+  
 Ability to change the colors as desired or at random
-![](https://github.com/Mockedarche/Space_Invaders_Emulator/blob/main/Media/color_change.gif)
+  
+  ![](https://github.com/Mockedarche/Space_Invaders_Emulator/blob/main/Media/color_change.gif)
 
 Notes
 All written in rust using macroquad for audio, video, and input
